@@ -123,10 +123,10 @@
           localStorage.setItem('lastSavedId', ids[i]); // ✅ store ID
 
           saveBtn.textContent = '✅ Saved';
-          setTimeout(() => {
-            overlay.style.display = 'none';
-            window.location.reload();
-          }, 700);
+setTimeout(() => {
+  overlay.style.display = 'none';
+  window.location.reload();
+}, 700);
 
         };
         actionTd.appendChild(saveBtn);
