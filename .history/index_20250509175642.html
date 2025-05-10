@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combinations Table</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; margin-bottom: 30px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #eee; }
+    td input { width: 100%; }
+    button { margin: 2px; }
+  </style>
+</head>
+<body>
+  <h1>Combinations (Price Editor)</h1>
+  <div id="tables"></div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000/api/combinations';
+
+    const mockData = {
+      "Full Color": [
+        { _id: "mock1", group: "Full Color", options: ["A4", "Glossy", "Single"], price: 0 },
+        { _id: "mock2", group: "Full Color", options: ["A5", "Matte", "Double"], price: 0 }
+      ],
+      "Black": [
+        { _id: "mock3", group: "Black", options: ["A4", "Plain", "Single"], price: 0 }
+      ]
+    };
+
+    async function fetchCombinations() {
+      try {
+        const res = await fetch(API_BASE);
+        const data = await res.json();
+        const validData = Object.keys(data).length ? data : mockData;
+        renderTables(validData);
+      } catch (err) {
+        console.warn('⚠️ Fetch failed. Using mock data.', err);
+        renderTables(mockData);
+      }
+    }
+
+    function renderTables(groups) {
+      const container = document.getElementById('tables');
+      container.innerHTML = '';
+
+      for (const group in groups) {
+        const combos = groups[group];
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<h2>${group}</h2>`;
+
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const tbody = document.createElement('tbody');
+
+        const maxCols = Math.max(...combos.map(c => (c.options?.length || 0)));
+
+        // Header row
+        const headerRow = document.createElement('tr');
+        for (let i = 0; i < maxCols; i++) {
+          const th = document.createElement('th');
+          th.textContent = `Option ${i + 1}`;
+          headerRow.appendChild(th);
+        }
+
+        const priceTh = document.createElement('th');
+        priceTh.textContent = 'Price ($)';
+        headerRow.appendChild(priceTh);
+
+        const actionTh = document.createElement('th');
+        actionTh.textContent = 'Actions';
+        headerRow.appendChild(actionTh);
+
+        thead.appendChild(headerRow);
+
+        // Combo rows
+        combos.forEach(combo => {
+          const row = document.createElement('tr');
+          const options = combo.options || [];
+
+          for (let i = 0; i < maxCols; i++) {
+            const td = document.createElement('td');
+            const input = document.createElement('input');
+            input.value = options[i] || '';
+            input.readOnly = true; // ❗ readonly
+            td.appendChild(input);
+            row.appendChild(td);
+          }
+
+          // Editable price input
+          const priceTd = document.createElement('td');
+          const priceInput = document.createElement('input');
+          priceInput.type = 'number';
+          priceInput.min = 0;
+          priceInput.step = 0.01;
+          priceInput.value = combo.price ?? 0;
+          priceInput.addEventListener('change', e => {
+            combo.price = parseFloat(e.target.value);
+            updateCombinationPrice(combo._id, combo.price);
+          });
+          priceTd.appendChild(priceInput);
+          row.appendChild(priceTd);
+
+          // Delete button
+          const delTd = document.createElement('td');
+          const delBtn = document.createElement('button');
+          delBtn.textContent = '🗑 Delete';
+          delBtn.onclick = () => deleteCombination(combo._id);
+          delTd.appendChild(delBtn);
+          row.appendChild(delTd);
+
+          tbody.appendChild(row);
+        });
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        wrapper.appendChild(table);
+        container.appendChild(wrapper);
+      }
+    }
+
+    async function updateCombinationPrice(id, price) {
+      if (id.startsWith('mock')) return;
+      await fetch(`${API_BASE}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price })
+      });
+    }
+
+    async function deleteCombination(id) {
+      if (id.startsWith('mock')) return;
+      await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
+      fetchCombinations();
+    }
+
+    fetchCombinations();
+  </script>
+</body>
+</html>

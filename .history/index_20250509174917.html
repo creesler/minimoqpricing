@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Price Matrix Admin</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; margin-bottom: 40px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background-color: #eee; }
+    input[readonly] { background-color: #f9f9f9; border: none; }
+    input.editable { border: 1px solid #888; }
+    button { margin: 2px; }
+  </style>
+</head>
+<body>
+  <h1>Price Matrix (Admin)</h1>
+  <div id="tables"></div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000/api/combinations';
+
+    async function fetchCombinations() {
+      try {
+        const res = await fetch(API_BASE);
+        const data = await res.json();
+        renderTables(data);
+      } catch (err) {
+        console.error('Failed to fetch combinations:', err);
+        document.getElementById('tables').innerHTML = '<p>Error loading combinations.</p>';
+      }
+    }
+
+    function renderTables(groups) {
+      const container = document.getElementById('tables');
+      container.innerHTML = '';
+
+      for (const group in groups) {
+        const combos = groups[group];
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<h2>${group}</h2>`;
+
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const tbody = document.createElement('tbody');
+
+        const maxCols = Math.max(...combos.map(c => c.options?.length || 0));
+
+        // Header
+        const headerRow = document.createElement('tr');
+        for (let i = 0; i < maxCols; i++) {
+          const th = document.createElement('th');
+          th.textContent = `Option ${i + 1}`;
+          headerRow.appendChild(th);
+        }
+        const priceTh = document.createElement('th');
+        priceTh.textContent = 'Price ($)';
+        headerRow.appendChild(priceTh);
+        const actionTh = document.createElement('th');
+        actionTh.textContent = 'Actions';
+        headerRow.appendChild(actionTh);
+        thead.appendChild(headerRow);
+
+        // Rows
+        combos.forEach(combo => {
+          const row = document.createElement('tr');
+
+          // Option cells (readonly)
+          for (let i = 0; i < maxCols; i++) {
+            const td = document.createElement('td');
+            const input = document.createElement('input');
+            input.readOnly = true;
+            input.value = combo.options?.[i] || '';
+            td.appendChild(input);
+            row.appendChild(td);
+          }
+
+          // Price cell (editable)
+          const priceTd = document.createElement('td');
+          const priceInput = document.createElement('input');
+          priceInput.type = 'number';
+          priceInput.className = 'editable';
+          priceInput.step = '0.01';
+          priceInput.value = combo.price ?? 0;
+          priceInput.addEventListener('change', async () => {
+            await updatePrice(combo._id, parseFloat(priceInput.value || 0));
+          });
+          priceTd.appendChild(priceInput);
+          row.appendChild(priceTd);
+
+          // Actions
+          const actionTd = document.createElement('td');
+          const delBtn = document.createElement('button');
+          delBtn.textContent = '🗑 Delete';
+          delBtn.onclick = () => deleteCombination(combo._id);
+          actionTd.appendChild(delBtn);
+          row.appendChild(actionTd);
+
+          tbody.appendChild(row);
+        });
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        wrapper.appendChild(table);
+        container.appendChild(wrapper);
+      }
+    }
+
+    async function updatePrice(id, price) {
+      try {
+        await fetch(`${API_BASE}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ price })
+        });
+        console.log(`✅ Price updated for ${id}: $${price}`);
+      } catch (err) {
+        console.error('❌ Failed to update price:', err);
+      }
+    }
+
+    async function deleteCombination(id) {
+      try {
+        await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
+        fetchCombinations();
+      } catch (err) {
+        console.error('❌ Delete failed:', err);
+      }
+    }
+
+    fetchCombinations();
+  </script>
+</body>
+</html>

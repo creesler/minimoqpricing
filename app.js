@@ -1,0 +1,69 @@
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const scrapeGroups = require('./scraper');
+const combinationRoutes = require('./routes/combinations');
+const cors = require('cors');
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Serve index.html statically
+app.use(express.static(path.join(__dirname)));
+
+app.use(cors());
+app.use(express.json());
+
+// Routes
+app.use('/api/combinations', combinationRoutes);
+
+// Mongo + Scraper URL
+const url = 'https://minimoqpack.com/admin-pricing';
+
+async function startServices() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('✅ MongoDB connected.');
+
+    // ✅ Manual scraper endpoint
+    app.get('/api/scrape', async (req, res) => {
+      const url = req.query.url;
+      if (!url) return res.status(400).json({ error: 'Missing ?url=' });
+
+      try {
+        console.log(`🔍 Manual scrape triggered: ${url}`);
+        await scrapeGroups(url);
+        res.json({ success: true });
+      } catch (err) {
+        console.error('❌ Manual scrape failed:', err.message);
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ❌ Background scraper loop disabled to preserve manual price edits
+    // const loop = async () => {
+    //   while (true) {
+    //     try {
+    //       console.log('\n⏳ Starting scrape cycle...');
+    //       await scrapeGroups(url);
+    //       console.log('✅ Scrape and combination complete. Waiting 5 seconds...\n');
+    //       await new Promise(resolve => setTimeout(resolve, 5000));
+    //     } catch (err) {
+    //       console.error('❌ Error during scrape cycle:', err);
+    //     }
+    //   }
+    // };
+    // loop();
+
+    // Start Express server
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+
+  } catch (err) {
+    console.error('❌ MongoDB connection failed:', err);
+  }
+}
+
+startServices();

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combination Table</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background-color: #eee; }
+    td input { width: 100%; }
+    button[disabled], input[disabled] { opacity: 0.6; cursor: not-allowed; }
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255, 255, 255, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5em;
+      color: #333;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <h2>Combination Price Matrix</h2>
+  <div id="overlay">⏳ Saving... Please wait</div>
+  <div id="tableContainer">Loading...</div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api/combinations';
+    const overlay = document.getElementById('overlay');
+  
+    async function fetchAndRender() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+  
+        console.log("🔍 Fetched combinations with prices:", data.rows.map((row, i) => ({
+          combination: row.slice(0, -1).join(' | '),
+          price: row[row.length - 1],
+          id: data.ids[i]
+        })));
+  
+        renderTable(data.headers, data.rows, data.ids);
+      } catch (err) {
+        const container = document.getElementById('tableContainer');
+        if (container) container.innerHTML = "❌ Failed to load data.";
+        console.error(err);
+      }
+    }
+  
+    window.addEventListener('DOMContentLoaded', async () => {
+      overlay.textContent = '🔄 Scraping form...';
+      overlay.style.display = 'flex';
+  
+      try {
+        console.log('🚀 Triggering scrape...');
+        const res = await fetch('http://localhost:3000/api/scrape?url=https://minimoqpack.com/admin-pricing');
+        const data = await res.json();
+        if (!data.success) throw new Error('Scrape failed');
+        console.log('✅ Scrape successful');
+      } catch (err) {
+        console.error('❌ Scrape request failed:', err.message);
+        alert('Form scrape failed. Using last saved data.');
+      }
+  
+      overlay.textContent = '📦 Loading combinations...';
+      await fetchAndRender();
+  
+      overlay.style.display = 'none';
+    });
+  </script>
+  
+
+</body>
+</html>

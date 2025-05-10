@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combinations Table</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; margin-bottom: 30px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #eee; }
+    td input { width: 100%; }
+    button { margin: 2px; }
+  </style>
+</head>
+<body>
+  <h1>Combinations (Full CRUD)</h1>
+  <div id="tables"></div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000/api/combinations';
+
+    const mockData = {
+      "Full Color": [
+        { _id: "mock1", group: "Full Color", options: ["A4", "Glossy", "Single"] },
+        { _id: "mock2", group: "Full Color", options: ["A5", "Matte", "Double"] }
+      ],
+      "Black": [
+        { _id: "mock3", group: "Black", options: ["A4", "Plain", "Single"] }
+      ]
+    };
+
+    async function fetchCombinations() {
+      try {
+        const res = await fetch(API_BASE);
+        const data = await res.json();
+
+        // Use mock data if response is empty or bad
+        const validData = Object.keys(data).length ? data : mockData;
+        console.log("🔍 Rendering data:", validData);
+        renderTables(validData);
+      } catch (err) {
+        console.warn('⚠️ Fetch failed. Using mock data.', err);
+        renderTables(mockData);
+      }
+    }
+
+    function renderTables(groups) {
+      const container = document.getElementById('tables');
+      container.innerHTML = '';
+
+      for (const group in groups) {
+        const combos = groups[group];
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<h2>${group}</h2>`;
+
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const tbody = document.createElement('tbody');
+
+        const maxCols = Math.max(...combos.map(c => (c.options?.length || 0)));
+
+        // Header row
+        const headerRow = document.createElement('tr');
+        for (let i = 0; i < maxCols; i++) {
+          const th = document.createElement('th');
+          th.textContent = `Option ${i + 1}`;
+          headerRow.appendChild(th);
+        }
+        const actionTh = document.createElement('th');
+        actionTh.textContent = 'Actions';
+        headerRow.appendChild(actionTh);
+        thead.appendChild(headerRow);
+
+        // Combo rows
+        combos.forEach(combo => {
+          const row = document.createElement('tr');
+          const options = combo.options || [];
+
+          for (let i = 0; i < maxCols; i++) {
+            const td = document.createElement('td');
+            const input = document.createElement('input');
+            input.value = options[i] || '';
+            input.addEventListener('change', e => {
+              combo.options[i] = e.target.value;
+              updateCombination(combo);
+            });
+            td.appendChild(input);
+            row.appendChild(td);
+          }
+
+          const delTd = document.createElement('td');
+          const delBtn = document.createElement('button');
+          delBtn.textContent = '🗑 Delete';
+          delBtn.onclick = () => deleteCombination(combo._id);
+          delTd.appendChild(delBtn);
+          row.appendChild(delTd);
+
+          tbody.appendChild(row);
+        });
+
+        // Add new combo row
+        const newRow = document.createElement('tr');
+        const newCombo = [];
+        for (let i = 0; i < maxCols; i++) {
+          const td = document.createElement('td');
+          const input = document.createElement('input');
+          input.dataset.index = i;
+          input.oninput = () => {
+            newCombo[i] = input.value;
+          };
+          td.appendChild(input);
+          newRow.appendChild(td);
+        }
+
+        const addTd = document.createElement('td');
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '➕ Add';
+        addBtn.onclick = () => {
+          const cleaned = newCombo.map(v => v?.trim()).filter(Boolean);
+          if (cleaned.length) {
+            createCombination({ group, options: cleaned });
+          }
+        };
+        addTd.appendChild(addBtn);
+        newRow.appendChild(addTd);
+        tbody.appendChild(newRow);
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        wrapper.appendChild(table);
+        container.appendChild(wrapper);
+      }
+    }
+
+    async function createCombination(data) {
+      await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      fetchCombinations();
+    }
+
+    async function updateCombination(combo) {
+      if (combo._id.startsWith('mock')) return;
+      await fetch(`${API_BASE}/${combo._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(combo)
+      });
+    }
+
+    async function deleteCombination(id) {
+      if (id.startsWith('mock')) return;
+      await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
+      fetchCombinations();
+    }
+
+    fetchCombinations();
+  </script>
+</body>
+</html>

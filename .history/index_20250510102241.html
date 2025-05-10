@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combination Table</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background-color: #eee; }
+    td input { width: 100%; }
+    button[disabled], input[disabled] { opacity: 0.6; cursor: not-allowed; }
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255, 255, 255, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5em;
+      color: #333;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <h2>Combination Price Matrix</h2>
+  <div id="overlay">⏳ Saving... Please wait</div>
+  <div id="tableContainer">Loading...</div>
+
+
+</body>
+</html>

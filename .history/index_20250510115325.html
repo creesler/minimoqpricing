@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combination Table</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background-color: #eee; }
+    td input { width: 100%; }
+    button[disabled], input[disabled] { opacity: 0.6; cursor: not-allowed; }
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255, 255, 255, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5em;
+      color: #333;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <h2>Combination Price Matrix</h2>
+
+  <div style="margin-bottom: 10px;">
+    <button onclick="filterGroup('Full Color')">🎨 Full Color</button>
+    <button onclick="filterGroup('Black')">🖤 Black</button>
+    <button onclick="filterGroup('All')">🌐 Show All</button>
+  </div>
+
+  <div id="overlay">⏳ Saving... Please wait</div>
+  <div id="tableContainer">Loading...</div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api/combinations';
+    const overlay = document.getElementById('overlay');
+    let originalData = { headers: [], rows: [], ids: [] };
+    let originalGroups = []; // ✅ group info
+
+    function filterGroup(group) {
+      if (group === 'All') {
+        renderTable(originalData.headers, originalData.rows, originalData.ids);
+        return;
+      }
+
+      const filtered = originalData.rows.map((row, i) => ({
+        row,
+        id: originalData.ids[i],
+        group: originalGroups[i]
+      })).filter(entry => entry.group === group);
+
+      const filteredRows = filtered.map(e => e.row);
+      const filteredIds = filtered.map(e => e.id);
+      renderTable(originalData.headers, filteredRows, filteredIds);
+    }
+
+    function renderTable(headers, rows, ids) {
+      const container = document.getElementById('tableContainer');
+      container.innerHTML = '';
+
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const tbody = document.createElement('tbody');
+
+      const headerRow = document.createElement('tr');
+      headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+      });
+      const actionTh = document.createElement('th');
+      actionTh.textContent = 'Action';
+      headerRow.appendChild(actionTh);
+      thead.appendChild(headerRow);
+
+      rows.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        let priceInput;
+
+        row.forEach((val, j) => {
+          const td = document.createElement('td');
+          if (j === row.length - 1) {
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = val;
+            input.min = 0;
+            input.step = 0.01;
+            input.className = 'price-input';
+            priceInput = input;
+            td.appendChild(input);
+          } else {
+            td.textContent = val;
+          }
+          tr.appendChild(td);
+        });
+
+        const actionTd = document.createElement('td');
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '💾 Save';
+        saveBtn.onclick = async () => {
+          const price = parseFloat(priceInput.value);
+
+          overlay.style.display = 'flex';
+          document.querySelectorAll('input').forEach(inp => inp.disabled = true);
+          document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+
+          saveBtn.textContent = '⏳ Saving...';
+
+          await updatePrice(ids[i], price);
+
+          saveBtn.textContent = '✅ Saved';
+          setTimeout(() => window.location.reload(), 700);
+        };
+        actionTd.appendChild(saveBtn);
+        tr.appendChild(actionTd);
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      container.appendChild(table);
+    }
+
+    async function updatePrice(id, price) {
+      try {
+        const res = await fetch(`${API_URL}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ price })
+        });
+        if (!res.ok) throw new Error("Failed to save");
+        console.log(`✅ Price updated: ${id} = $${price}`);
+      } catch (err) {
+        alert("❌ Failed to save price.");
+        console.error(err);
+      }
+    }
+
+    async function fetchAndRender() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        console.log("🔍 Fetched combinations with prices:", data.rows.map((row, i) => ({
+          combination: row.slice(0, -1).join(' | '),
+          price: row[row.length - 1],
+          id: data.ids[i],
+          group: data.groups[i]
+        })));
+
+        originalData = {
+          headers: data.headers,
+          rows: data.rows,
+          ids: data.ids
+        };
+        originalGroups = data.groups; // ✅
+
+        renderTable(data.headers, data.rows, data.ids);
+      } catch (err) {
+        document.getElementById('tableContainer').innerHTML = "❌ Failed to load data.";
+        console.error(err);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      overlay.textContent = '🔄 Scraping form...';
+      overlay.style.display = 'flex';
+
+      try {
+        console.log('🚀 Triggering scrape...');
+        const res = await fetch('http://localhost:3000/api/scrape?url=https://minimoqpack.com/admin-pricing');
+        const data = await res.json();
+        if (!data.success) throw new Error('Scrape failed');
+        console.log('✅ Scrape successful');
+      } catch (err) {
+        console.error('❌ Scrape request failed:', err.message);
+        alert('Form scrape failed. Using last saved data.');
+      }
+
+      overlay.textContent = '📦 Loading combinations...';
+      await fetchAndRender();
+      overlay.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
