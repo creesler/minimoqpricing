@@ -86,22 +86,48 @@ async function syncCombinations(group, newCombos, batchSize = 100) {
   console.log(`\n⏳ Syncing [${group}] combos...`);
   const existing = await Combination.find({ group });
 
-  const toInsert = newCombos
-    .filter(combo => !existing.some(e => JSON.stringify(e.options) === JSON.stringify(combo)))
-    .map(combo => ({
-      group,
-      options: combo,
-      price: 0
-    }));
+  const existingMap = new Map(
+    existing.map(e => [JSON.stringify(e.options), e])
+  );
+
+  const newMap = new Map(
+    newCombos.map(combo => [JSON.stringify(combo), combo])
+  );
+
+  const toInsert = [];
+  for (const [key, combo] of newMap.entries()) {
+    if (!existingMap.has(key)) {
+      toInsert.push({
+        group,
+        options: combo,
+        price: 0
+      });
+    }
+  }
+
+  const toDelete = [];
+  for (const [key, comboDoc] of existingMap.entries()) {
+    if (!newMap.has(key)) {
+      toDelete.push(comboDoc._id);
+    }
+  }
 
   if (toInsert.length) {
     console.log(`📦 Inserting ${toInsert.length} new combos...`);
     for (let i = 0; i < toInsert.length; i += batchSize) {
       await Combination.insertMany(toInsert.slice(i, i + batchSize));
     }
-    console.log(`✅ ${group} insert complete`);
+  }
+
+  if (toDelete.length) {
+    console.log(`🗑️ Removing ${toDelete.length} outdated combos...`);
+    await Combination.deleteMany({ _id: { $in: toDelete } });
+  }
+
+  if (!toInsert.length && !toDelete.length) {
+    console.log(`📭 No changes for ${group}.`);
   } else {
-    console.log(`📭 No new ${group} combos.`);
+    console.log(`✅ Sync complete for ${group}`);
   }
 }
 
