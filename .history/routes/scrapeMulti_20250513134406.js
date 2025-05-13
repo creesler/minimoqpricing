@@ -5,22 +5,34 @@ const mongoose = require('mongoose');
 
 const router = express.Router();
 
+// Utility: dynamic model generator
 function getModels(formName) {
   const FormModel = mongoose.model(`form_${formName}`, new mongoose.Schema({}, { strict: false }));
   const CombinationModel = mongoose.model(`combinations_${formName}`, new mongoose.Schema({}, { strict: false }));
   return { FormModel, CombinationModel };
 }
 
+// Utility: generate all possible combinations
 function generateCombinations(optionGroups) {
   if (optionGroups.length === 0) return [];
   if (optionGroups.length === 1) return optionGroups[0].map(opt => [opt]);
 
   const rest = generateCombinations(optionGroups.slice(1));
-  return optionGroups[0].flatMap(opt => rest.map(r => [opt, ...r]));
+  const result = [];
+
+  optionGroups[0].forEach(opt => {
+    rest.forEach(r => {
+      result.push([opt, ...r]);
+    });
+  });
+
+  return result;
 }
 
+// ✅ Scrape all forms from the page
 router.post('/scrape-multi', async (req, res) => {
   const { url } = req.body;
+
   if (!url) return res.status(400).json({ success: false, error: 'Missing URL' });
 
   try {
@@ -28,30 +40,26 @@ router.post('/scrape-multi', async (req, res) => {
     const $ = cheerio.load(pageRes.data);
     const results = [];
 
-    $('h2, h3').each(async (_, header) => {
+    $('h2, h3').each((_, header) => {
       const $header = $(header);
       const rawText = $header.text().trim();
 
-      // ✅ Skip non-product headers
-      const skipList = [
-        'combination price matrix',
-        'help', 'payment', 'custom', 'our companies', 'minimoqpack',
-      ];
-      const headerText = rawText.toLowerCase();
-      if (!rawText || skipList.some(keyword => headerText.includes(keyword))) return;
-
-      const formName = headerText.replace(/\s+/g, '_');
-      const { FormModel, CombinationModel } = getModels(formName);
-
-      // ✅ Skip if already exists
-      const alreadyExists = await FormModel.estimatedDocumentCount();
-      if (alreadyExists > 0) {
-        console.log(`⏩ Skipped "${formName}" — already scraped (${alreadyExists} fields)`);
-        results.push({ product: formName, skipped: true });
+      // Skip generic headers
+      if (
+        !rawText ||
+        rawText.toLowerCase().includes('combination price matrix') ||
+        rawText.toLowerCase().includes('help') ||
+        rawText.toLowerCase().includes('payment') ||
+        rawText.toLowerCase().includes('custom') ||
+        rawText.toLowerCase().includes('our companies') ||
+        rawText.toLowerCase().includes('minimoqpack')
+      ) {
         return;
       }
 
-      // ✅ Find form after header
+      const formName = rawText.toLowerCase().replace(/\s+/g, '_');
+      const { FormModel, CombinationModel } = getModels(formName);
+
       const $nextElems = $header.closest('.elementor-element').nextAll();
       let $form = null;
 
@@ -60,7 +68,7 @@ router.post('/scrape-multi', async (req, res) => {
         const foundForm = $el.find('form.forminator-custom-form, form.forminator-form');
         if (foundForm.length) {
           $form = foundForm.first();
-          return false; // break
+          return false;
         }
       });
 
@@ -90,7 +98,7 @@ router.post('/scrape-multi', async (req, res) => {
           label,
           options,
           type: 'select',
-          product: formName,
+          product: formName
         });
       });
 
@@ -99,25 +107,24 @@ router.post('/scrape-multi', async (req, res) => {
         return;
       }
 
-      await FormModel.deleteMany({});
-      await FormModel.insertMany(formFields);
-      await CombinationModel.deleteMany({}); // ready for generation
+      FormModel.deleteMany({})
+        .then(() => FormModel.insertMany(formFields))
+        .catch(err => console.error(`❌ Failed to save form_${formName}:`, err.message));
 
-      results.push({ product: formName, fieldsCount: formFields.length });
-      console.log(`✅ Processed "${formName}" with ${formFields.length} fields`);
+      CombinationModel.deleteMany({}); // prepare for combinations later
+
+      results.push({ formName, fieldsCount: formFields.length });
+      console.log(`✅ Processed form: ${formName} with ${formFields.length} fields`);
     });
 
-    // Allow async each to complete
-    setTimeout(() => {
-      res.json({ success: true, formsProcessed: results });
-    }, 500);
+    res.json({ success: true, formsProcessed: results });
   } catch (err) {
     console.error('❌ scrape-multi error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ✅ Generate combinations
+// ✅ Generate combinations dynamically
 router.post('/generate-combinations/:product', async (req, res) => {
   const { product } = req.params;
 
@@ -126,15 +133,18 @@ router.post('/generate-combinations/:product', async (req, res) => {
   try {
     const { FormModel, CombinationModel } = getModels(product);
     const fields = await FormModel.find({});
-    if (!fields.length) return res.status(404).json({ success: false, error: `No fields found for "${product}"` });
+
+    if (!fields.length) {
+      return res.status(404).json({ success: false, error: `No fields found for form_${product}` });
+    }
 
     const optionGroups = fields.map(field => field.options || []);
-    const combos = generateCombinations(optionGroups);
+    const combinations = generateCombinations(optionGroups);
 
-    const docs = combos.map(options => ({
-      options,
+    const docs = combinations.map(combo => ({
+      options: combo,
       price: 0,
-      group: product,
+      group: product
     }));
 
     await CombinationModel.deleteMany({});
