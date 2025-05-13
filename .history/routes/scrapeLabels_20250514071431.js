@@ -3,6 +3,12 @@ const router = express.Router();
 const { JSDOM } = require('jsdom');
 const axios = require('axios');
 
+function generateCombinations(optionSets) {
+  return optionSets.reduce((acc, set) =>
+    acc.flatMap(combo => set.map(option => [...combo, option])), [[]]
+  );
+}
+
 router.get('/', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ success: false, error: 'Missing ?url param' });
@@ -23,7 +29,6 @@ router.get('/', async (req, res) => {
     const widgets = Array.from(doc.querySelectorAll('[data-widget_type="shortcode.default"]'));
 
     widgets.forEach(widget => {
-      // Traverse backward to find heading above the form
       let headingText = 'Unknown';
       let prev = widget.previousElementSibling;
 
@@ -47,14 +52,23 @@ router.get('/', async (req, res) => {
         const select = selects[i];
         if (!select) return;
 
+        const options = Array.from(select.options).map(opt => opt.textContent.trim());
         fields.push({
           product: headingText,
           label: label.textContent.trim(),
-          options: Array.from(select.options).map(opt => opt.textContent.trim())
+          options
         });
       });
 
       forms.push({ product: headingText, fields });
+    });
+
+    // 🧠 Generate and print combinations per form
+    forms.forEach(form => {
+      const optionSets = form.fields.map(f => f.options.filter(Boolean));
+      const combos = generateCombinations(optionSets);
+      console.log(`\n🔹 Combinations for "${form.product}" (${combos.length} total):`);
+      combos.forEach(c => console.log(c.join(' | ')));
     });
 
     res.json({
