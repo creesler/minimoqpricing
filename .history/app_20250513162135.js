@@ -28,7 +28,6 @@ app.use(express.json());
 // Routes
 app.use('/api/combinations', combinationRoutes);
 
-
 //ScrapeLabel new endpoint
 const scrapeLabelsRoute = require('./routes/scrapeLabels');
 app.use('/api', scrapeLabelsRoute);
