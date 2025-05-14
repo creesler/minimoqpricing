@@ -16,14 +16,6 @@ const FormBlack = require('./models/FormBlack');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ CORS - allow specific frontend
-app.use(cors({
-  origin: 'https://minimoqpack.com',
-  methods: ['GET', 'POST', 'PUT'],
-  credentials: true
-}));
-
-
 // Serve index.html and static assets
 app.use(express.static(path.join(__dirname)));
 
