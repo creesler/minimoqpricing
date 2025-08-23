@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 // ✅ CORS - allow specific frontend
 app.use(cors({
   origin: 'https://minimoqpack.com',
-  methods: ['GET', 'POST', 'PUT'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
 
