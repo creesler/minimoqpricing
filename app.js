@@ -1,79 +1,37 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const path = require('path');
+const express = require("express");
+const cors = require("cors");
 
-const scrapeGroups = require('./scraper');
-const combinationRoutes = require('./routes/combinations');
-const scrapeLabels = require('./routes/scrapeLabels');
-const labeledCombinationsRoute = require('./routes/labeledCombinations'); // ✅ New route for per-product labeled combos
-
-// MongoDB models
-const FormFullColor = require('./models/FormFullColor');
-const FormBlack = require('./models/FormBlack');
+const combinationRoutes = require("./routes/combinations");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// ✅ CORS - allow specific frontend
 app.use(cors({
-  origin: 'https://minimoqpack.com',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  origin: [
+    "https://minimoqpack.com",
+    "https://www.minimoqpack.com",
+    "http://localhost:3000"
+  ],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Accept"]
 }));
-
-
-// Serve index.html and static assets
-app.use(express.static(path.join(__dirname)));
-
 
 app.use(express.json());
 
-// ✅ Routes
-app.use('/api/combinations', combinationRoutes);                // existing combinations route
-app.use('/api/scrape-labels', scrapeLabels);                    // new scraping and saving per-product
-app.use('/api/labeled-combinations', labeledCombinationsRoute); // ✅ per-product get from DB
-
-// ✅ Optional: legacy full/black field config endpoint
-app.get('/api/configuration', async (req, res) => {
-  try {
-    const fullColorFields = await FormFullColor.find({});
-    const blackFields = await FormBlack.find({});
-    res.json({ fullColorFields, blackFields });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+app.get("/", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "Minimoq pricing API is running"
+  });
 });
 
-// ✅ Manual scraper endpoint (triggered by admin pages)
-app.get('/api/scrape', async (req, res) => {
-  const url = req.query.url;
-  if (!url) return res.status(400).json({ error: 'Missing ?url=' });
+app.use("/api/combinations", combinationRoutes);
 
-  try {
-    console.log(`🔍 Manual scrape triggered: ${url}`);
-    await scrapeGroups(url);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Manual scrape failed:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+module.exports = app;
 
-// ✅ Connect and start server
-async function startServices() {
-  try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('✅ MongoDB connected.');
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-    });
-
-  } catch (err) {
-    console.error('❌ MongoDB connection failed:', err);
-  }
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 }
-
-startServices();
