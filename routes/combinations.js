@@ -1,84 +1,41 @@
-const express = require('express');
+const express = require("express");
+const { createClient } = require("@supabase/supabase-js");
+
 const router = express.Router();
-const Combination = require('../models/Combination');
 
-// ✅ NEW FORMAT: GET all combinations as an array of objects
-router.get('/', async (req, res) => {
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn("Missing Supabase environment variables.");
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+router.get("/", async (req, res) => {
   try {
-    const combos = await Combination.find({});
-    res.json(combos);
+    const { data, error } = await supabase
+      .from("pricing_combinations")
+      .select("group_name, options, price")
+      .order("id", { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    const combinations = data.map((row) => ({
+      group: row.group_name,
+      options: row.options,
+      price: row.price
+    }));
+
+    res.json(combinations);
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    console.error("Failed to load combinations:", err);
 
-// POST create a new combination
-router.post('/', async (req, res) => {
-  try {
-    const { group, options, price } = req.body;
-    const combo = new Combination({
-      group,
-      options,
-      price: parseFloat(price) || 0
+    res.status(500).json({
+      error: "Failed to load pricing combinations"
     });
-    const saved = await combo.save();
-    res.status(201).json(saved);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// POST update prices in bulk
-router.post('/update', async (req, res) => {
-  try {
-    const updates = req.body.rows;
-
-    for (const { _id, price } of updates) {
-      await Combination.findByIdAndUpdate(_id, { price: parseFloat(price) });
-    }
-
-    res.json({ success: true, updated: updates.length });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// PUT /api/combinations/:id — update one price
-router.put('/:id', async (req, res) => {
-  try {
-    const { price } = req.body;
-    const updated = await Combination.findByIdAndUpdate(
-      req.params.id,
-      { price: parseFloat(price) },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({ error: 'Combination not found' });
-    }
-
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/combinations/lookup — get price for selected options
-router.post('/lookup', async (req, res) => {
-  const { options } = req.body;
-  if (!Array.isArray(options)) {
-    return res.status(400).json({ error: 'Options array required' });
-  }
-
-  try {
-    const match = await Combination.findOne({ options });
-    if (match) {
-      res.json({ price: match.price });
-    } else {
-      res.json({ price: null });
-    }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
 });
 
