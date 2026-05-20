@@ -1,42 +1,36 @@
 const express = require("express");
-const { createClient } = require("@supabase/supabase-js");
+const cors = require("cors");
 
-const router = express.Router();
+const combinationRoutes = require("./routes/combinations");
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const app = express();
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.warn("Missing Supabase environment variables.");
-}
+app.use(cors({
+  origin: [
+    "https://minimoqpack.com",
+    "https://www.minimoqpack.com",
+    "http://localhost:3000"
+  ],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Accept"]
+}));
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+app.use(express.json());
 
-router.get("/", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("pricing_combinations")
-      .select("group_name, options, price")
-      .order("id", { ascending: true });
-
-    if (error) {
-      throw error;
-    }
-
-    const combinations = data.map((row) => ({
-      group: row.group_name,
-      options: row.options,
-      price: row.price
-    }));
-
-    res.json(combinations);
-  } catch (err) {
-    console.error("Failed to load combinations:", err);
-
-    res.status(500).json({
-      error: "Failed to load pricing combinations"
-    });
-  }
+app.get("/", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "Minimoq pricing API is running"
+  });
 });
 
-module.exports = router;
+app.use("/api/combinations", combinationRoutes);
+
+module.exports = app;
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
