@@ -1,10 +1,10 @@
 const { MongoClient } = require("mongodb");
 const { createClient } = require("@supabase/supabase-js");
 
-module.exports = async function handler(req, res) {
-  if (req.query.secret !== process.env.IMPORT_SECRET) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+// module.exports = async function handler(req, res) {
+//   if (req.query.secret !== process.env.IMPORT_SECRET) {
+//     return res.status(401).json({ error: "Unauthorized" });
+//   }
 
   if (!process.env.MONGO_URI) {
     return res.status(500).json({ error: "Missing MONGO_URI" });
