@@ -97,7 +97,7 @@ module.exports = async function handler(req, res) {
       const options = [];
 
       $select.find("option").each((_, optionEl) => {
-        const value = normalizeText($(optionEl).attr("value") || $(optionEl).text());
+        const value = normalizeText($(optionEl).text() || $(optionEl).attr("value"));
 
         if (
           value &&
@@ -158,6 +158,22 @@ module.exports = async function handler(req, res) {
       };
     });
 
+    const suspiciousValues = ["one", "two", "three", "four"];
+    
+    const hasSuspiciousOnlyValues = fields.some((field) =>
+      field.options.some((option) =>
+        suspiciousValues.includes(String(option).toLowerCase())
+      )
+    );
+    
+    if (hasSuspiciousOnlyValues) {
+      return res.status(400).json({
+        success: false,
+        error: "Scrape produced suspicious option values. Refusing to overwrite saved pricing.",
+        product,
+        fields
+      });
+    }
     const payload = {
       form_key: product,
       fields,
