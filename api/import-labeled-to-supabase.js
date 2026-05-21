@@ -25,19 +25,15 @@ module.exports = async function handler(req, res) {
 
     const rows = mongoRows
       .map((row) => ({
-        form_key:
-          row.formId ||
-          row.formID ||
-          row.form_key ||
-          row.formKey ||
-          row.form ||
-          row.label ||
-          row.name ||
-          row.title,
+        form_key: row.product,
         fields: row.fields || [],
         combinations: row.combinations || []
       }))
-      .filter((row) => row.form_key && Array.isArray(row.fields) && Array.isArray(row.combinations));
+      .filter((row) =>
+        row.form_key &&
+        Array.isArray(row.fields) &&
+        Array.isArray(row.combinations)
+      );
 
     if (!rows.length) {
       return res.status(400).json({
@@ -46,7 +42,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    await supabase.from("labeled_combinations").delete().neq("form_key", "");
+    await supabase
+      .from("labeled_combinations")
+      .delete()
+      .neq("form_key", "");
 
     const { error } = await supabase
       .from("labeled_combinations")
