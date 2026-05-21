@@ -24,8 +24,6 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Missing key" });
   }
 
-  // Public/product/admin table read:
-  // GET /api/labeled-combinations/form_cardstock
   if (req.method === "GET") {
     try {
       const { data, error } = await supabase
@@ -40,7 +38,7 @@ module.exports = async function handler(req, res) {
         fields: data.fields,
         combinations: data.combinations
       });
-    } catch (err) {
+    } catch {
       return res.status(404).json({
         error: "Labeled combinations not found",
         form: key
@@ -48,8 +46,6 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // Admin price save:
-  // PUT /api/labeled-combinations/COMBINATION_ID
   if (req.method === "PUT") {
     try {
       const { price } = req.body;
@@ -79,8 +75,10 @@ module.exports = async function handler(req, res) {
                 ...combo,
                 price: Number(price)
               };
+
               return updatedCombination;
             }
+
             return combo;
           });
 
