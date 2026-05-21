@@ -2,16 +2,6 @@ const { MongoClient } = require("mongodb");
 const { createClient } = require("@supabase/supabase-js");
 
 module.exports = async function handler(req, res) {
-  return res.status(200).json({
-  version: "IMPORT_TEST_123",
-  message: "This is the newest GitHub code"
-});
-  
-// module.exports = async function handler(req, res) {
-//   if (req.query.secret !== process.env.IMPORT_SECRET) {
-//     return res.status(401).json({ error: "Unauthorized" });
-//   }
-
   if (!process.env.MONGO_URI) {
     return res.status(500).json({ error: "Missing MONGO_URI" });
   }
@@ -21,6 +11,7 @@ module.exports = async function handler(req, res) {
   }
 
   const mongo = new MongoClient(process.env.MONGO_URI);
+
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -31,7 +22,6 @@ module.exports = async function handler(req, res) {
 
     const db = mongo.db("test");
 
-    // This is the collection that matched your frontend format.
     const mongoRows = await db.collection("combinations").find({}).toArray();
 
     const rows = mongoRows
@@ -48,7 +38,6 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Clear existing Supabase rows first.
     const { error: deleteError } = await supabase
       .from("pricing_combinations")
       .delete()
@@ -58,7 +47,6 @@ module.exports = async function handler(req, res) {
       throw deleteError;
     }
 
-    // Insert in chunks to avoid request limits.
     const chunkSize = 500;
     let inserted = 0;
 
