@@ -1,6 +1,12 @@
 const { MongoClient } = require("mongodb");
 const { createClient } = require("@supabase/supabase-js");
 
+module.exports = async function handler(req, res) {
+  return res.status(200).json({
+  version: "IMPORT_TEST_123",
+  message: "This is the newest GitHub code"
+});
+  
 // module.exports = async function handler(req, res) {
 //   if (req.query.secret !== process.env.IMPORT_SECRET) {
 //     return res.status(401).json({ error: "Unauthorized" });
